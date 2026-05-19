@@ -24,7 +24,26 @@ services:
     networks:
       - proxy
 
+  wp-db:
+    image: mariadb:10.11
+    container_name: ${COMPOSE_PROJECT_NAME}-wp-db
+    restart: unless-stopped
+    command: >-
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+    environment:
+      - MARIADB_ROOT_PASSWORD=${WP_DB_ROOT_PASSWORD}
+      - MARIADB_DATABASE=${WP_DB_NAME}
+      - MARIADB_USER=${WP_DB_USER}
+      - MARIADB_PASSWORD=${WP_DB_PASSWORD}
+    volumes:
+      - ./data/wp/db:/var/lib/mysql
+    networks:
+      - wp-net
+
 networks:
   proxy:
     name: ${TRAEFIK_NETWORK}
     external: true
+  wp-net:
+    name: ${COMPOSE_PROJECT_NAME}-wp-net
