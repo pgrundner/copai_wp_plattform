@@ -41,9 +41,107 @@ services:
     networks:
       - wp-net
 
+  wp-php:
+    build:
+      context: ./wordpress
+      args:
+        - WP_VERSION=${WP_VERSION}
+        - WP_PHP_VERSION=${WP_PHP_VERSION}
+        - BUDDYPRESS_VERSION=${BUDDYPRESS_VERSION}
+        - JITSI_SPARRING_REF=${JITSI_SPARRING_REF}
+        - MEETING_REGISTRATION_REF=${MEETING_REGISTRATION_REF}
+    container_name: ${COMPOSE_PROJECT_NAME}-wp-php
+    restart: unless-stopped
+    depends_on:
+      - wp-db
+    environment:
+      - WORDPRESS_DB_HOST=wp-db
+      - WORDPRESS_DB_NAME=${WP_DB_NAME}
+      - WORDPRESS_DB_USER=${WP_DB_USER}
+      - WORDPRESS_DB_PASSWORD=${WP_DB_PASSWORD}
+      - WP_HOST
+      - WP_TITLE
+      - WP_ADMIN_USER
+      - WP_ADMIN_PASS
+      - WP_ADMIN_EMAIL
+      - SMTP_HOST
+      - SMTP_PORT
+      - SMTP_USER
+      - SMTP_PASS
+      - SMTP_FROM_EMAIL
+      - SMTP_FROM_NAME
+      - SMTP_ENCRYPTION
+      - COPAI_RUN_INSTALL=1
+    volumes:
+      - wp-html:/var/www/html
+      - ./data/wp/content:/var/www/html/wp-content
+    networks:
+      - wp-net
+
+  wp-nginx:
+    build:
+      context: ./wordpress
+      dockerfile: Dockerfile.nginx
+    container_name: ${COMPOSE_PROJECT_NAME}-wp-nginx
+    restart: unless-stopped
+    depends_on:
+      - wp-php
+    environment:
+      - WP_MAX_UPLOAD
+    volumes:
+      - wp-html:/var/www/html:ro
+      - ./data/wp/content:/var/www/html/wp-content:ro
+    networks:
+      - wp-net
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${TRAEFIK_NETWORK}"
+      - "traefik.http.services.wp.loadbalancer.server.port=80"
+      - "traefik.http.routers.wp.rule=Host(`${WP_HOST}`)"
+      - "traefik.http.routers.wp.entrypoints=websecure"
+      - "traefik.http.routers.wp.tls.certresolver=${TRAEFIK_TLS_RESOLVER}"
+
+  wp-cron:
+    build:
+      context: ./wordpress
+      args:
+        - WP_VERSION=${WP_VERSION}
+        - WP_PHP_VERSION=${WP_PHP_VERSION}
+        - BUDDYPRESS_VERSION=${BUDDYPRESS_VERSION}
+        - JITSI_SPARRING_REF=${JITSI_SPARRING_REF}
+        - MEETING_REGISTRATION_REF=${MEETING_REGISTRATION_REF}
+    container_name: ${COMPOSE_PROJECT_NAME}-wp-cron
+    restart: unless-stopped
+    depends_on:
+      - wp-php
+    environment:
+      - WORDPRESS_DB_HOST=wp-db
+      - WORDPRESS_DB_NAME=${WP_DB_NAME}
+      - WORDPRESS_DB_USER=${WP_DB_USER}
+      - WORDPRESS_DB_PASSWORD=${WP_DB_PASSWORD}
+    volumes:
+      - wp-html:/var/www/html
+      - ./data/wp/content:/var/www/html/wp-content
+    networks:
+      - wp-net
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - >-
+        until wp --allow-root --path=/var/www/html core is-installed 2>/dev/null;
+        do sleep 5; done;
+        while true; do
+          wp --allow-root --path=/var/www/html cron event run --due-now;
+          sleep 60;
+        done
+
 networks:
   proxy:
     name: ${TRAEFIK_NETWORK}
     external: true
   wp-net:
     name: ${COMPOSE_PROJECT_NAME}-wp-net
+
+volumes:
+  wp-html:
+    name: ${COMPOSE_PROJECT_NAME}-wp-html
