@@ -135,12 +135,116 @@ services:
           sleep 60;
         done
 
+  moodle-db:
+    image: mariadb:10.11
+    container_name: ${COMPOSE_PROJECT_NAME}-moodle-db
+    restart: unless-stopped
+    command: >-
+      --transaction-isolation=READ-COMMITTED
+      --binlog-format=ROW
+      --skip-character-set-client-handshake
+      --init-connect=SET NAMES utf8mb4
+    environment:
+      - MARIADB_ROOT_PASSWORD=${MOODLE_DB_ROOT_PASSWORD}
+      - MARIADB_DATABASE=${MOODLE_DB_NAME}
+      - MARIADB_USER=${MOODLE_DB_USER}
+      - MARIADB_PASSWORD=${MOODLE_DB_PASSWORD}
+    volumes:
+      - ./data/moodle/db:/var/lib/mysql
+    networks:
+      - moodle-net
+
+  moodle-php:
+    build:
+      context: ./moodle
+      args:
+        - MOODLE_GIT_BRANCH=${MOODLE_GIT_BRANCH}
+    container_name: ${COMPOSE_PROJECT_NAME}-moodle-php
+    restart: unless-stopped
+    depends_on:
+      - moodle-db
+    environment:
+      - MOODLE_DB_HOST=moodle-db
+      - MOODLE_DB_NAME=${MOODLE_DB_NAME}
+      - MOODLE_DB_USER=${MOODLE_DB_USER}
+      - MOODLE_DB_PASSWORD=${MOODLE_DB_PASSWORD}
+      - MOODLE_URL=https://${MOODLE_HOST}
+      - MOODLE_ADMIN_USER=${MOODLE_ADMIN_USER}
+      - MOODLE_ADMIN_PASS=${MOODLE_ADMIN_PASS}
+      - MOODLE_ADMIN_EMAIL=${MOODLE_ADMIN_EMAIL}
+      - MOODLE_MAX_UPLOAD=${MOODLE_MAX_UPLOAD}
+      - SSL=true
+    volumes:
+      - ./moodle/config.php:/var/www/html/config.php
+      - ./data/moodle/moodledata:/var/www/moodledata
+    networks:
+      - moodle-net
+
+  moodle-nginx:
+    build:
+      context: ./moodle
+      dockerfile: Dockerfile.nginx
+      args:
+        - MOODLE_GIT_BRANCH=${MOODLE_GIT_BRANCH}
+    container_name: ${COMPOSE_PROJECT_NAME}-moodle-nginx
+    restart: unless-stopped
+    depends_on:
+      - moodle-php
+    environment:
+      - MOODLE_MAX_UPLOAD=${MOODLE_MAX_UPLOAD}
+    volumes:
+      - ./data/moodle/moodledata:/var/www/moodledata
+    networks:
+      - moodle-net
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${TRAEFIK_NETWORK}"
+      - "traefik.http.services.moodle.loadbalancer.server.port=80"
+      - "traefik.http.routers.moodle.rule=Host(`${MOODLE_HOST}`)"
+      - "traefik.http.routers.moodle.entrypoints=websecure"
+      - "traefik.http.routers.moodle.tls.certresolver=${TRAEFIK_TLS_RESOLVER}"
+
+  moodle-cron:
+    build:
+      context: ./moodle
+      args:
+        - MOODLE_GIT_BRANCH=${MOODLE_GIT_BRANCH}
+    container_name: ${COMPOSE_PROJECT_NAME}-moodle-cron
+    restart: unless-stopped
+    depends_on:
+      - moodle-db
+      - moodle-php
+    entrypoint: []
+    command:
+      - bash
+      - -c
+      - >-
+        echo 'Starting Moodle cron loop...';
+        while true; do
+          php /var/www/html/admin/cli/cron.php > /dev/null 2>&1 || true;
+          sleep 60;
+        done
+    environment:
+      - MOODLE_DB_HOST=moodle-db
+      - MOODLE_DB_NAME=${MOODLE_DB_NAME}
+      - MOODLE_DB_USER=${MOODLE_DB_USER}
+      - MOODLE_DB_PASSWORD=${MOODLE_DB_PASSWORD}
+      - MOODLE_URL=https://${MOODLE_HOST}
+    volumes:
+      - ./moodle/config.php:/var/www/html/config.php
+      - ./data/moodle/moodledata:/var/www/moodledata
+    networks:
+      - moodle-net
+
 networks:
   proxy:
     name: ${TRAEFIK_NETWORK}
     external: true
   wp-net:
     name: ${COMPOSE_PROJECT_NAME}-wp-net
+  moodle-net:
+    name: ${COMPOSE_PROJECT_NAME}-moodle-net
 
 volumes:
   wp-html:
