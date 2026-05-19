@@ -139,11 +139,11 @@ services:
     image: mariadb:10.11
     container_name: ${COMPOSE_PROJECT_NAME}-moodle-db
     restart: unless-stopped
-    command: >-
-      --transaction-isolation=READ-COMMITTED
-      --binlog-format=ROW
-      --skip-character-set-client-handshake
-      --init-connect=SET NAMES utf8mb4
+    command:
+      - --transaction-isolation=READ-COMMITTED
+      - --binlog-format=ROW
+      - --skip-character-set-client-handshake
+      - --init-connect=SET NAMES utf8mb4
     environment:
       - MARIADB_ROOT_PASSWORD=${MOODLE_DB_ROOT_PASSWORD}
       - MARIADB_DATABASE=${MOODLE_DB_NAME}
