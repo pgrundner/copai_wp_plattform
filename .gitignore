@@ -1,0 +1,12 @@
+# Local env + secrets
+.env
+
+# Runtime data (bind-mounts)
+data/
+
+# Traefik ACME storage (created by setup, contains private keys)
+traefik/acme.json
+traefik/acme-staging.json
+
+# OS noise
+.DS_Store
