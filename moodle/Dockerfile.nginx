@@ -1,0 +1,21 @@
+FROM nginx:alpine
+
+ARG MOODLE_GIT_BRANCH=MOODLE_403_STABLE
+
+LABEL maintainer="Maximilian Raidl"
+
+RUN apk add --no-cache git
+
+# 2. Configs kopieren
+RUN rm /etc/nginx/conf.d/default.conf
+#COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+COPY nginx.conf /etc/nginx/templates/default.conf.template
+
+# 3. Moodle herunterladen
+WORKDIR /var/www/html
+RUN rm -rf /var/www/html/*
+RUN git clone --depth=1 -b ${MOODLE_GIT_BRANCH} https://github.com/moodle/moodle.git .
+
+# (Optional: Git wieder löschen, um Platz zu sparen)
+RUN apk del git
