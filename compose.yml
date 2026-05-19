@@ -1,0 +1,30 @@
+name: ${COMPOSE_PROJECT_NAME}
+
+services:
+  traefik:
+    build:
+      context: ./traefik
+    container_name: ${COMPOSE_PROJECT_NAME}-traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./traefik/traefik.yml.tmpl:/etc/traefik/templates/traefik.yml.tmpl:ro
+      - ./traefik/dynamic:/etc/traefik/templates/dynamic:ro
+      - ./traefik/acme.json:/acme/acme.json
+      - ./traefik/acme-staging.json:/acme/acme-staging.json
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - ACME_EMAIL
+      - TRAEFIK_HOST
+      - TRAEFIK_TLS_RESOLVER
+      - TRAEFIK_DASHBOARD_USER
+      - TRAEFIK_DASHBOARD_PASSWORD_HASH
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    name: ${TRAEFIK_NETWORK}
+    external: true
