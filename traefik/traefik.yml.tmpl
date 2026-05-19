@@ -1,0 +1,40 @@
+api:
+  dashboard: true
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: ":443"
+
+providers:
+  docker:
+    network: proxy
+    exposedByDefault: false
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: ${ACME_EMAIL}
+      storage: /acme/acme.json
+      tlsChallenge: {}
+
+  letsencrypt-staging:
+    acme:
+      email: ${ACME_EMAIL}
+      storage: /acme/acme-staging.json
+      caServer: https://acme-staging-v02.api.letsencrypt.org/directory
+      tlsChallenge: {}
+
+log:
+  level: INFO
+
+accessLog: {}
