@@ -48,6 +48,18 @@ add_action('rest_api_init', function () {
 function copai_oauth_authorize(WP_REST_Request $req) {
     $cfg = copai_oauth_config();
 
+    // WP REST's default cookie auth requires an X-WP-Nonce header; the user
+    // here arrives via a top-level browser redirect from wp-login.php, so
+    // there's no nonce, and is_user_logged_in() returns false even though
+    // the logged_in cookie validates fine. Validate the cookie directly and
+    // adopt the user for the rest of this request.
+    if (!is_user_logged_in() && !empty($_COOKIE[LOGGED_IN_COOKIE])) {
+        $uid = wp_validate_auth_cookie($_COOKIE[LOGGED_IN_COOKIE], 'logged_in');
+        if ($uid) {
+            wp_set_current_user($uid);
+        }
+    }
+
     $client_id     = (string) $req->get_param('client_id');
     $redirect_uri  = (string) $req->get_param('redirect_uri');
     $response_type = (string) $req->get_param('response_type');
