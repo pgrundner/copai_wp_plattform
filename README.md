@@ -4,13 +4,23 @@ Ein Docker-Compose-Stack mit WordPress (+ BuddyPress + zwei eigene Plugins), Moo
 
 ## Architektur
 
-9 Container in 3 Netzwerken:
+13 Container in 4 Netzwerken:
 
 - **traefik** — Reverse-Proxy mit Let's Encrypt (Staging oder Produktion umschaltbar)
 - **wp-php**, **wp-nginx**, **wp-cron**, **wp-db** — WordPress-Stack auf `wp-net`
 - **moodle-php**, **moodle-nginx**, **moodle-cron**, **moodle-db** — Moodle-Stack auf `moodle-net`
+- **jitsi-web**, **jitsi-prosody**, **jitsi-jicofo**, **jitsi-jvb** — Jitsi-Meet-Stack auf `jitsi-net`
 
-Nur die beiden nginx-Container hängen zusätzlich am `proxy`-Netz und sind damit für Traefik sichtbar. Datenbanken sind von außen nicht erreichbar.
+Nur die drei nginx-/jitsi-web-Container hängen zusätzlich am `proxy`-Netz und sind damit für Traefik sichtbar. Datenbanken und interne Jitsi-Komponenten sind von außen nicht erreichbar.
+
+## Jitsi-Spezifika
+
+- **JVB-UDP-Port 10000** wird direkt auf dem Host exponiert (von Traefik unabhängig). Für Video/Audio brauchen Browser eine direkte UDP-Verbindung zum Host auf `${JITSI_JVB_ADVERTISE_IPS}:10000`.
+- **Lokal** (Browser auf gleichem Host): `JITSI_JVB_ADVERTISE_IPS=127.0.0.1` → funktioniert ohne weitere Konfiguration.
+- **LAN-Test**: `JITSI_JVB_ADVERTISE_IPS` auf die LAN-IP setzen, UDP/10000 auf dem Host nicht firewallen.
+- **Produktion**: `JITSI_JVB_ADVERTISE_IPS` = öffentliche IPv4, UDP/10000 im Router/Firewall forwarden.
+- **bp-jitsi-sparring**: Wird beim Start automatisch auf `https://${JITSI_HOST}` gepointet (nur wenn die Option leer ist oder noch auf `meet.jit.si` zeigt).
+- **Interne Auth-Secrets** (`JITSI_JICOFO_*`, `JITSI_JVB_AUTH_PASSWORD`): vor Produktiveinsatz unbedingt rotieren — `openssl rand -hex 16`.
 
 ## Voraussetzungen
 
@@ -53,6 +63,7 @@ chmod 600 traefik/acme.json traefik/acme-staging.json
 ```bash
 mkdir -p data/wp/content data/wp/db
 mkdir -p data/moodle/moodledata data/moodle/db
+mkdir -p data/jitsi/{prosody-config,prosody-plugins,jicofo,jvb,web,transcripts}
 ```
 
 ### 5. Proxy-Netzwerk anlegen
