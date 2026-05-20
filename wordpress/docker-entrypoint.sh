@@ -71,6 +71,15 @@ if [ "${COPAI_RUN_INSTALL:-0}" = "1" ]; then
     wp plugin activate buddypress copai-bp-jitsi-sparring copai-meeting-registration copai-meetup-block \
         --allow-root 2>/dev/null || true
 
+    # Pretty permalinks — required for CPT archives (/meetups/) and BuddyPress
+    # routes (/activity/, /members/). WordPress defaults to plain (?p=123).
+    current_perm=$(wp option get permalink_structure --allow-root 2>/dev/null)
+    if [ -z "$current_perm" ] || [ "$current_perm" = "''" ]; then
+        echo "Setting pretty permalinks..."
+        wp option update permalink_structure '/%postname%/' --allow-root
+        wp rewrite flush --allow-root
+    fi
+
     # Pre-configure default menu (idempotent). The menu shows up automatically
     # with classic themes assigned to the `primary` location; with block themes
     # (e.g. twentytwentyfive) it must be selected once in the Site Editor →
