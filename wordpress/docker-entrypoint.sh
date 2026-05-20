@@ -17,21 +17,27 @@ if [ ! -f /var/www/html/wp-config.php ] && [ -f /usr/src/wordpress/wp-config-doc
     cp /usr/src/wordpress/wp-config-docker.php /var/www/html/wp-config.php
 fi
 
-# 2) Sync managed plugins on every start so image rebuilds (= new plugin
+# 2) Ensure all standard wp-content subdirs exist
+for d in themes plugins mu-plugins uploads upgrade languages; do
+    mkdir -p "/var/www/html/wp-content/$d"
+done
+
+# 3) Sync managed plugins on every start so image rebuilds (= new plugin
 #    versions) propagate even when wp-content is a bind-mount.
 managed_plugins="buddypress copai-bp-jitsi-sparring copai-meeting-registration"
 for p in $managed_plugins; do
     src="/usr/src/wordpress/wp-content/plugins/$p"
     dst="/var/www/html/wp-content/plugins/$p"
     if [ -d "$src" ]; then
-        mkdir -p "$dst"
         rsync -a --delete "$src/" "$dst/"
     fi
 done
 
 # Sync mu-plugins (always — they ship with the image)
-mkdir -p /var/www/html/wp-content/mu-plugins
 rsync -a --delete /usr/src/wordpress/wp-content/mu-plugins/ /var/www/html/wp-content/mu-plugins/
+
+# Sync default themes WITHOUT --delete so user-installed themes survive rebuilds
+rsync -a /usr/src/wordpress/wp-content/themes/ /var/www/html/wp-content/themes/
 
 # Ownership for www-data
 chown -R www-data:www-data /var/www/html
