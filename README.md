@@ -80,6 +80,24 @@ Nach dem ersten Erfolg sind erreichbar:
 - Moodle: `https://${MOODLE_HOST}` — Login mit `MOODLE_ADMIN_USER` / `MOODLE_ADMIN_PASS`
 - Traefik-Dashboard: `https://${TRAEFIK_HOST}` — Basic-Auth aus `.env`
 
+### Vorkonfiguriertes Menü
+
+Beim ersten Start wird automatisch ein WP-Menü "Hauptmenü" mit drei Einträgen angelegt:
+
+| Eintrag | Ziel |
+|---|---|
+| Startseite | `/` |
+| Meetups | `/meetups/` (Archiv des `meetup`-Custom-Post-Types) |
+| Mitglieder | `/members/` (BuddyPress) |
+
+Bei **klassischen Themes** wird das Menü automatisch an die `primary`-Location gebunden und ist sofort sichtbar.
+
+Bei **Block-Themes** (Default `twentytwentyfive`) ist das Menü nur in der DB hinterlegt — der Navigation-Block muss einmalig darauf zeigen:
+
+1. WP-Admin → Design → Editor → Header (oder die Vorlage, die die Navigation enthält)
+2. Auf den Navigation-Block klicken → drei Punkte → **Vorhandenes Menü auswählen** → **Hauptmenü**
+3. Speichern
+
 ### Lokales Testen ohne DNS
 
 Falls `${WP_HOST}` etc. auf `*.localtest.me` zeigen, löst macOS das nicht automatisch auf. Entweder:
