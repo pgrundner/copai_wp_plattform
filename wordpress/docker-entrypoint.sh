@@ -82,15 +82,20 @@ if [ "${COPAI_RUN_INSTALL:-0}" = "1" ]; then
         needs_flush=1
     fi
 
-    # Enable BuddyPress Groups component (plus seed BP defaults on first run).
-    # `wp plugin activate buddypress` does NOT populate bp-active-components in
-    # the DB — the option stays unset until BP itself writes defaults later
-    # (during the first admin visit). So on a fresh install our merge would
-    # otherwise clobber the defaults. Seed them explicitly when missing.
+    # Enable BuddyPress Groups component and ensure its DB tables/pages exist.
+    # Setting the bp-active-components option alone is NOT enough: BP creates
+    # component tables only via bp_core_install() (which is what the admin UI
+    # calls). Without that, "save group" from the frontend fails because
+    # wp_bp_groups doesn't exist.
     has_groups=$(wp eval 'echo !empty(get_option("bp-active-components", [])["groups"]) ? "1" : "0";' \
-                 --allow-root 2>/dev/null)
-    if [ "$has_groups" != "1" ]; then
-        echo "Enabling BuddyPress Groups component..."
+                 --allow-root 2>/dev/null || true)
+    groups_table=$(wp eval '
+        global $wpdb;
+        $t = $wpdb->prefix . "bp_groups";
+        echo $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $t)) === $t ? "1" : "0";
+    ' --allow-root 2>/dev/null || true)
+    if [ "$has_groups" != "1" ] || [ "$groups_table" != "1" ]; then
+        echo "Installing BuddyPress Groups component (option + tables + pages)..."
         wp eval '
             $current = (array) get_option("bp-active-components", []);
             if (empty($current)) {
@@ -104,6 +109,24 @@ if [ "${COPAI_RUN_INSTALL:-0}" = "1" ]; then
             }
             $current["groups"] = 1;
             update_option("bp-active-components", $current);
+
+            if (function_exists("buddypress")) {
+                // dbDelta lives in wp-admin/includes/upgrade.php and is NOT
+                // autoloaded in CLI context. BP installers call it.
+                require_once ABSPATH . "wp-admin/includes/upgrade.php";
+
+                $dir = buddypress()->plugin_dir;
+                foreach (["bp-core/admin/bp-core-admin-schema.php",
+                          "bp-core/admin/bp-core-admin-functions.php"] as $rel) {
+                    if (file_exists($dir . $rel)) { require_once $dir . $rel; }
+                }
+                if (function_exists("bp_core_install")) {
+                    bp_core_install(["groups" => 1]);
+                }
+                if (function_exists("bp_core_add_page_mappings")) {
+                    bp_core_add_page_mappings(["groups" => 1]);
+                }
+            }
         ' --allow-root 2>/dev/null
         needs_flush=1
     fi
