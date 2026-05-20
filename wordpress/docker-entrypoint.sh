@@ -71,13 +71,32 @@ if [ "${COPAI_RUN_INSTALL:-0}" = "1" ]; then
     wp plugin activate buddypress copai-bp-jitsi-sparring copai-meeting-registration copai-meetup-block \
         --allow-root 2>/dev/null || true
 
+    needs_flush=0
+
     # Pretty permalinks — required for CPT archives (/meetups/) and BuddyPress
     # routes (/activity/, /members/). WordPress defaults to plain (?p=123).
     current_perm=$(wp option get permalink_structure --allow-root 2>/dev/null)
     if [ -z "$current_perm" ] || [ "$current_perm" = "''" ]; then
         echo "Setting pretty permalinks..."
         wp option update permalink_structure '/%postname%/' --allow-root
-        wp rewrite flush --allow-root
+        needs_flush=1
+    fi
+
+    # Enable BuddyPress Groups component if not already active.
+    has_groups=$(wp eval 'echo !empty(get_option("bp-active-components", [])["groups"]) ? "1" : "0";' \
+                 --allow-root 2>/dev/null)
+    if [ "$has_groups" != "1" ]; then
+        echo "Enabling BuddyPress Groups component..."
+        wp eval '
+            $c = (array) get_option("bp-active-components", []);
+            $c["groups"] = 1;
+            update_option("bp-active-components", $c);
+        ' --allow-root 2>/dev/null
+        needs_flush=1
+    fi
+
+    if [ "$needs_flush" = "1" ]; then
+        wp rewrite flush --allow-root 2>/dev/null
     fi
 
     # Pre-configure default menu (idempotent). The menu shows up automatically
