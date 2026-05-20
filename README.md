@@ -13,6 +13,35 @@ Ein Docker-Compose-Stack mit WordPress (+ BuddyPress + zwei eigene Plugins), Moo
 
 Nur die drei nginx-/jitsi-web-Container hängen zusätzlich am `proxy`-Netz und sind damit für Traefik sichtbar. Datenbanken und interne Jitsi-Komponenten sind von außen nicht erreichbar.
 
+## Single Sign-On WordPress → Moodle (OAuth2)
+
+WordPress agiert als OAuth2-Identity-Provider, Moodle als OAuth2-Client. Anmeldung mit WP-Credentials auf Moodle ist out-of-the-box konfiguriert.
+
+**Endpoints (auf WP-Seite):**
+
+- `https://${WP_HOST}/wp-json/copai-oauth/v1/.well-known/openid-configuration` — OIDC-Discovery
+- `https://${WP_HOST}/wp-json/copai-oauth/v1/authorize` — Authorization
+- `https://${WP_HOST}/wp-json/copai-oauth/v1/token` — Token Exchange
+- `https://${WP_HOST}/wp-json/copai-oauth/v1/userinfo` — User-Profil
+
+**Login-Flow:**
+
+1. User öffnet `https://${MOODLE_HOST}/login/` → klickt Button "CoPAI Community"
+2. Moodle leitet zum WP-`/authorize`-Endpoint um
+3. Falls noch nicht in WP eingeloggt: WP-Login-Seite (mit Rück-Redirect)
+4. Nach Login: WP gibt Code aus → Redirect zu Moodle-Callback
+5. Moodle tauscht Code gegen Token, ruft `userinfo` auf
+6. Moodle legt Account (per Email) an oder findet ihn, loggt ein
+
+**Konfiguration (`.env`):**
+
+- `OAUTH_CLIENT_ID` (default `moodle`)
+- `OAUTH_CLIENT_SECRET` — **muss vor Produktiveinsatz rotiert werden** (`openssl rand -hex 24`)
+
+**Field-Mapping**: `email→email`, `given_name→firstname`, `family_name→lastname`, `preferred_username→username`.
+
+**Wer einen WP-Account hat, kann sich auf Moodle einloggen.** WP-Admin-Klick-Konfiguration ist NICHT erforderlich — beim Container-Start läuft `moodle/setup_oauth2.php` idempotent und legt Issuer/Endpoints/Mappings an.
+
 ## Jitsi-Spezifika
 
 - **JVB-UDP-Port 10000** wird direkt auf dem Host exponiert (von Traefik unabhängig). Für Video/Audio brauchen Browser eine direkte UDP-Verbindung zum Host auf `${JITSI_JVB_ADVERTISE_IPS}:10000`.

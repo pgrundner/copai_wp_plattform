@@ -91,5 +91,12 @@ else
     echo "Moodle ist bereits installiert (Datenbank gefüllt). Starte normal."
 fi
 
-# 3. Server starten
+# 3. OAuth2-Issuer einrichten (idempotent — prüft auf existing issuer by name).
+#    Nur wenn das Setup-Script gemountet und die Variablen gesetzt sind.
+if [ -f /var/www/html/setup_oauth2.php ] && [ -n "${OAUTH_CLIENT_SECRET:-}" ]; then
+    echo "Konfiguriere OAuth2-SSO..."
+    php /var/www/html/setup_oauth2.php || echo "OAuth2 setup failed (non-fatal)."
+fi
+
+# 4. Server starten
 exec "$@"

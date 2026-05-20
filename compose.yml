@@ -68,6 +68,9 @@ services:
       - WP_MENU_MEETUPS_LABEL
       - WP_MENU_MEMBERS_LABEL
       - JITSI_HOST
+      - MOODLE_HOST
+      - OAUTH_CLIENT_ID
+      - OAUTH_CLIENT_SECRET
       - SMTP_HOST
       - SMTP_PORT
       - SMTP_USER
@@ -290,8 +293,12 @@ services:
       - MOODLE_ADMIN_EMAIL=${MOODLE_ADMIN_EMAIL}
       - MOODLE_MAX_UPLOAD=${MOODLE_MAX_UPLOAD}
       - SSL=true
+      - WP_HOST=${WP_HOST}
+      - OAUTH_CLIENT_ID=${OAUTH_CLIENT_ID}
+      - OAUTH_CLIENT_SECRET=${OAUTH_CLIENT_SECRET}
     volumes:
       - ./moodle/config.php:/var/www/html/config.php
+      - ./moodle/setup_oauth2.php:/var/www/html/setup_oauth2.php:ro
       - ./data/moodle/moodledata:/var/www/moodledata
     networks:
       - moodle-net
