@@ -5,9 +5,16 @@ ARG MOODLE_GIT_BRANCH=MOODLE_403_STABLE
 
 
 RUN apt-get update && apt-get install -y \
-    git ca-certificates \
+    git ca-certificates curl \
     unzip libzip-dev libicu-dev libpng-dev libjpeg-dev libfreetype6-dev libxml2-dev locales \
     && rm -rf /var/lib/apt/lists/*
+
+# Trust the Let's Encrypt Staging Root CA so back-channel OAuth2 calls succeed
+# when the stack uses TRAEFIK_TLS_RESOLVER=letsencrypt-staging in dev/firewall
+# setups. Harmless for production (just an additional trust anchor).
+RUN curl -fsSL https://letsencrypt.org/certs/staging/letsencrypt-stg-root-x1.pem \
+        -o /usr/local/share/ca-certificates/letsencrypt-staging-root-x1.crt \
+    && update-ca-certificates
 
 # Spracheinstellung
 RUN echo "de_DE.UTF-8 UTF-8" >> /etc/locale.gen \

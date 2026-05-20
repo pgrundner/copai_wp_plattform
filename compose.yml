@@ -22,7 +22,12 @@ services:
       - TRAEFIK_DASHBOARD_USER
       - TRAEFIK_DASHBOARD_PASSWORD_HASH
     networks:
-      - proxy
+      proxy:
+        aliases:
+          - ${WP_HOST}
+          - ${MOODLE_HOST}
+          - ${JITSI_HOST}
+          - ${TRAEFIK_HOST}
 
   wp-db:
     image: mariadb:10.11
@@ -302,6 +307,7 @@ services:
       - ./data/moodle/moodledata:/var/www/moodledata
     networks:
       - moodle-net
+      - proxy   # so back-channel OAuth2 calls can reach Traefik by hostname
 
   moodle-nginx:
     build:
