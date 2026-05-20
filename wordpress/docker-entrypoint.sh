@@ -24,7 +24,7 @@ done
 
 # 3) Sync managed plugins on every start so image rebuilds (= new plugin
 #    versions) propagate even when wp-content is a bind-mount.
-managed_plugins="buddypress copai-bp-jitsi-sparring copai-meeting-registration copai-meetup-block"
+managed_plugins="buddypress copai-bp-jitsi-sparring copai-meeting-registration copai-meetup-block copai-oauth-server"
 for p in $managed_plugins; do
     src="/usr/src/wordpress/wp-content/plugins/$p"
     dst="/var/www/html/wp-content/plugins/$p"
@@ -68,7 +68,7 @@ if [ "${COPAI_RUN_INSTALL:-0}" = "1" ]; then
 
     # Ensure managed plugins are active on every start (no-op when already active).
     # This picks up newly added managed plugins on existing installations.
-    wp plugin activate buddypress copai-bp-jitsi-sparring copai-meeting-registration copai-meetup-block \
+    wp plugin activate buddypress copai-bp-jitsi-sparring copai-meeting-registration copai-meetup-block copai-oauth-server \
         --allow-root 2>/dev/null || true
 
     needs_flush=0
