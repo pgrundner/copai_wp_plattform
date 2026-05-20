@@ -112,6 +112,18 @@ if [ "${COPAI_RUN_INSTALL:-0}" = "1" ]; then
         wp rewrite flush --allow-root 2>/dev/null
     fi
 
+    # Point the bp-jitsi-sparring plugin at the self-hosted Jitsi if it's still
+    # using the public meet.jit.si default. User-customised values are preserved.
+    # The `|| true` keeps set -e from killing the script when the option is
+    # missing — wp-cli returns exit 1 on get-of-missing-option.
+    if [ -n "${JITSI_HOST:-}" ]; then
+        current_jitsi=$(wp option get bpjs_server_url --allow-root 2>/dev/null || true)
+        if [ -z "$current_jitsi" ] || [ "$current_jitsi" = "https://meet.jit.si" ]; then
+            echo "Pointing bpjs_server_url at https://${JITSI_HOST}..."
+            wp option update bpjs_server_url "https://${JITSI_HOST}" --allow-root 2>/dev/null
+        fi
+    fi
+
     # Pre-configure default menu (idempotent). The menu shows up automatically
     # with classic themes assigned to the `primary` location; with block themes
     # (e.g. twentytwentyfive) it must be selected once in the Site Editor →

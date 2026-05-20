@@ -67,6 +67,7 @@ services:
       - WP_MENU_HOME_LABEL
       - WP_MENU_MEETUPS_LABEL
       - WP_MENU_MEMBERS_LABEL
+      - JITSI_HOST
       - SMTP_HOST
       - SMTP_PORT
       - SMTP_USER
@@ -137,6 +138,118 @@ services:
           wp --allow-root --path=/var/www/html cron event run --due-now;
           sleep 60;
         done
+
+  jitsi-prosody:
+    image: jitsi/prosody:${JITSI_VERSION}
+    container_name: ${COMPOSE_PROJECT_NAME}-jitsi-prosody
+    restart: unless-stopped
+    expose:
+      - "5222"
+      - "5347"
+      - "5280"
+    volumes:
+      - ./data/jitsi/prosody-config:/config
+      - ./data/jitsi/prosody-plugins:/prosody-plugins-custom
+    environment:
+      - AUTH_TYPE=internal
+      - ENABLE_GUESTS=1
+      - DOMAIN=meet.jitsi
+      - XMPP_DOMAIN=meet.jitsi
+      - XMPP_AUTH_DOMAIN=auth.meet.jitsi
+      - XMPP_GUEST_DOMAIN=guest.meet.jitsi
+      - XMPP_MUC_DOMAIN=muc.meet.jitsi
+      - XMPP_INTERNAL_MUC_DOMAIN=internal-muc.meet.jitsi
+      - JICOFO_COMPONENT_SECRET=${JITSI_JICOFO_COMPONENT_SECRET}
+      - JICOFO_AUTH_USER=focus
+      - JICOFO_AUTH_PASSWORD=${JITSI_JICOFO_AUTH_PASSWORD}
+      - JVB_AUTH_USER=jvb
+      - JVB_AUTH_PASSWORD=${JITSI_JVB_AUTH_PASSWORD}
+      - TZ=${TZ}
+    networks:
+      jitsi-net:
+        aliases:
+          - meet.jitsi
+          - auth.meet.jitsi
+          - guest.meet.jitsi
+          - muc.meet.jitsi
+          - internal-muc.meet.jitsi
+
+  jitsi-jicofo:
+    image: jitsi/jicofo:${JITSI_VERSION}
+    container_name: ${COMPOSE_PROJECT_NAME}-jitsi-jicofo
+    restart: unless-stopped
+    depends_on:
+      - jitsi-prosody
+    volumes:
+      - ./data/jitsi/jicofo:/config
+    environment:
+      - XMPP_DOMAIN=meet.jitsi
+      - XMPP_AUTH_DOMAIN=auth.meet.jitsi
+      - XMPP_INTERNAL_MUC_DOMAIN=internal-muc.meet.jitsi
+      - XMPP_SERVER=jitsi-prosody
+      - JICOFO_COMPONENT_SECRET=${JITSI_JICOFO_COMPONENT_SECRET}
+      - JICOFO_AUTH_USER=focus
+      - JICOFO_AUTH_PASSWORD=${JITSI_JICOFO_AUTH_PASSWORD}
+      - JVB_BREWERY_MUC=jvbbrewery
+      - TZ=${TZ}
+    networks:
+      - jitsi-net
+
+  jitsi-jvb:
+    image: jitsi/jvb:${JITSI_VERSION}
+    container_name: ${COMPOSE_PROJECT_NAME}-jitsi-jvb
+    restart: unless-stopped
+    depends_on:
+      - jitsi-prosody
+    ports:
+      - "10000:10000/udp"
+    volumes:
+      - ./data/jitsi/jvb:/config
+    environment:
+      - DOCKER_HOST_ADDRESS=${JITSI_JVB_ADVERTISE_IPS}
+      - XMPP_AUTH_DOMAIN=auth.meet.jitsi
+      - XMPP_INTERNAL_MUC_DOMAIN=internal-muc.meet.jitsi
+      - XMPP_SERVER=jitsi-prosody
+      - JVB_AUTH_USER=jvb
+      - JVB_AUTH_PASSWORD=${JITSI_JVB_AUTH_PASSWORD}
+      - JVB_BREWERY_MUC=jvbbrewery
+      - JVB_PORT=10000
+      - JVB_ADVERTISE_IPS=${JITSI_JVB_ADVERTISE_IPS}
+      - JVB_STUN_SERVERS=meet-jit-si-turnrelay.jitsi.net:443
+      - TZ=${TZ}
+    networks:
+      - jitsi-net
+
+  jitsi-web:
+    image: jitsi/web:${JITSI_VERSION}
+    container_name: ${COMPOSE_PROJECT_NAME}-jitsi-web
+    restart: unless-stopped
+    depends_on:
+      - jitsi-prosody
+    volumes:
+      - ./data/jitsi/web:/config
+      - ./data/jitsi/transcripts:/usr/share/jitsi-meet/transcripts
+    environment:
+      - ENABLE_AUTH=0
+      - ENABLE_GUESTS=1
+      - PUBLIC_URL=https://${JITSI_HOST}
+      - XMPP_DOMAIN=meet.jitsi
+      - XMPP_AUTH_DOMAIN=auth.meet.jitsi
+      - XMPP_GUEST_DOMAIN=guest.meet.jitsi
+      - XMPP_MUC_DOMAIN=muc.meet.jitsi
+      - XMPP_BOSH_URL_BASE=http://jitsi-prosody:5280
+      - DISABLE_HTTPS=1
+      - TZ=${TZ}
+    networks:
+      - jitsi-net
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${TRAEFIK_NETWORK}"
+      - "traefik.http.services.jitsi.loadbalancer.server.port=80"
+      - "traefik.http.routers.jitsi.rule=Host(`${JITSI_HOST}`)"
+      - "traefik.http.routers.jitsi.entrypoints=websecure"
+      - "traefik.http.routers.jitsi.tls.certresolver=${TRAEFIK_TLS_RESOLVER}"
 
   moodle-db:
     image: mariadb:10.11
@@ -248,6 +361,8 @@ networks:
     name: ${COMPOSE_PROJECT_NAME}-wp-net
   moodle-net:
     name: ${COMPOSE_PROJECT_NAME}-moodle-net
+  jitsi-net:
+    name: ${COMPOSE_PROJECT_NAME}-jitsi-net
 
 volumes:
   wp-html:
