@@ -87,8 +87,19 @@ if [ "${COPAI_RUN_INSTALL:-0}" = "1" ]; then
             echo "Adding menu items..."
             wp menu item add-custom "$menu_id" "Startseite" "/" --allow-root
             wp menu item add-custom "$menu_id" "Meetups" "/meetups/" --allow-root
-            wp menu item add-custom "$menu_id" "Mitglieder" "/members/" --allow-root
+            wp menu item add-custom "$menu_id" "Mitglieder" "/activity/" --allow-root
             wp menu location assign "$menu_id" primary --allow-root 2>/dev/null
+        else
+            # Self-heal: update legacy URL of the Mitglieder item (/members/ → /activity/).
+            db_id=$(wp menu item list "$menu_id" --format=csv --fields=db_id,title --allow-root 2>/dev/null \
+                    | awk -F',' 'NR>1 && $2 == "Mitglieder" {print $1; exit}')
+            if [ -n "$db_id" ]; then
+                current=$(wp post meta get "$db_id" _menu_item_url --allow-root 2>/dev/null)
+                if [ "$current" = "/members/" ]; then
+                    echo "Updating legacy Mitglieder URL to /activity/..."
+                    wp menu item update "$db_id" --link="/activity/" --allow-root 2>/dev/null
+                fi
+            fi
         fi
     fi
     set -e
