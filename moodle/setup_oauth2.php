@@ -68,6 +68,24 @@ if (!$issuer) {
 
 $issuer_id = $issuer->get('id');
 
+// Skip Moodle's own email confirmation for OAuth2 sign-ups: the user's identity
+// is already verified by the OAuth2 provider (WordPress). Otherwise Moodle sends
+// a confirmation link pointing at /login/confirm.php (an auth_email-only
+// endpoint) which then errors with "user confirmation is not enabled".
+if ($issuer->get('requireconfirmation')) {
+    $issuer->set('requireconfirmation', 0);
+    $issuer->save();
+    echo "Disabled requireconfirmation on issuer.\n";
+}
+
+// Confirm any existing OAuth2 users still sitting on confirmed=0 from the
+// pre-fix flow so they're not locked out.
+global $DB;
+if ($DB->count_records_select('user', 'auth = ? AND confirmed = 0', ['oauth2']) > 0) {
+    $DB->set_field_select('user', 'confirmed', 1, 'auth = ? AND confirmed = 0', ['oauth2']);
+    echo "Auto-confirmed pre-existing unconfirmed OAuth2 users.\n";
+}
+
 // Ensure endpoints exist (defensive — fills any missing ones on every run).
 //
 // authorize is browser-facing → must use the public HTTPS host so the user's
@@ -87,7 +105,6 @@ $existing_endpoints = [];
 foreach (api::get_endpoints($issuer) as $e) {
     $existing_endpoints[$e->get('name')] = $e;
 }
-global $DB;
 $admin_id = get_admin()->id;
 $now      = time();
 foreach ($desired_endpoints as $name => $url) {
