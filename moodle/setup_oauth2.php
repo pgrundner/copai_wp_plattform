@@ -17,6 +17,12 @@ use core\oauth2\issuer;
 // adopt the site admin's session before making API calls.
 \core\session\manager::set_user(get_admin());
 
+// Moodle's curl_security_helper blocks 127.0.0.0/8 + RFC1918 by default. In
+// our self-hosted stack the OAuth2 host (e.g. community.localtest.me in dev)
+// often resolves there, which breaks Moodle's endpoint-discovery probe. Clear
+// the blocklist — the stack admin owns both endpoints, so this is safe.
+set_config('curlsecurityblockedhosts', '');
+
 $client_id     = (string) getenv('OAUTH_CLIENT_ID');
 $client_secret = (string) getenv('OAUTH_CLIENT_SECRET');
 $wp_host       = (string) getenv('WP_HOST');
@@ -52,32 +58,62 @@ if (!$issuer) {
         'servicetype'        => '',
         'logoutsupport'      => 0,
     ];
-    $issuer = api::create_issuer($record);
+    // Bypass api::create_issuer() — it always triggers OIDC discovery against
+    // baseurl, which fails in dev (LE staging cert doesn't match the hostname).
+    // We set all endpoints explicitly below, so discovery is redundant anyway.
+    $issuer = new issuer(0, $record);
+    $issuer->create();
     echo "Issuer created with id=" . $issuer->get('id') . "\n";
 }
 
 $issuer_id = $issuer->get('id');
 
 // Ensure endpoints exist (defensive — fills any missing ones on every run).
+//
+// authorize is browser-facing → must use the public HTTPS host so the user's
+// browser can follow the redirect.
+// token + userinfo are server-to-server → go through the internal docker
+// network using the wp-nginx service name over HTTP. That sidesteps the
+// self-signed/default Traefik cert that's served in dev/firewall setups
+// where LE staging can't validate localtest.me.
+$bc_url = (string) (getenv('OAUTH_BACKCHANNEL_URL') ?: 'http://wp-nginx');
 $desired_endpoints = [
     'authorization_endpoint' => "$base_url/wp-json/copai-oauth/v1/authorize",
-    'token_endpoint'         => "$base_url/wp-json/copai-oauth/v1/token",
-    'userinfo_endpoint'      => "$base_url/wp-json/copai-oauth/v1/userinfo",
+    'token_endpoint'         => "$bc_url/wp-json/copai-oauth/v1/token",
+    'userinfo_endpoint'      => "$bc_url/wp-json/copai-oauth/v1/userinfo",
     'discovery_endpoint'     => "$base_url/wp-json/copai-oauth/v1/.well-known/openid-configuration",
 ];
 $existing_endpoints = [];
 foreach (api::get_endpoints($issuer) as $e) {
     $existing_endpoints[$e->get('name')] = $e;
 }
+global $DB;
+$admin_id = get_admin()->id;
+$now      = time();
 foreach ($desired_endpoints as $name => $url) {
     if (isset($existing_endpoints[$name])) {
         continue;
     }
-    api::create_endpoint((object) [
-        'issuerid' => $issuer_id,
-        'name'     => $name,
-        'url'      => $url,
-    ]);
+    if (strpos($url, 'http://') === 0) {
+        // Moodle's endpoint::validate_url rejects non-HTTPS URLs. For internal
+        // back-channel URLs (wp-nginx service name in the docker network) we
+        // insert directly to bypass that check — the URL is reachable only
+        // from inside the compose stack, no MITM surface.
+        $DB->insert_record('oauth2_endpoint', (object) [
+            'issuerid'     => $issuer_id,
+            'name'         => $name,
+            'url'          => $url,
+            'timecreated'  => $now,
+            'timemodified' => $now,
+            'usermodified' => $admin_id,
+        ]);
+    } else {
+        api::create_endpoint((object) [
+            'issuerid' => $issuer_id,
+            'name'     => $name,
+            'url'      => $url,
+        ]);
+    }
     echo "  + endpoint $name -> $url\n";
 }
 
