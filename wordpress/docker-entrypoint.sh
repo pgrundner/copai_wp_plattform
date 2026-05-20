@@ -67,6 +67,28 @@ if [ "${COPAI_RUN_INSTALL:-0}" = "1" ]; then
     else
         echo "WordPress already installed; skipping core install."
     fi
+
+    # Pre-configure default menu (idempotent). The menu shows up automatically
+    # with classic themes assigned to the `primary` location; with block themes
+    # (e.g. twentytwentyfive) it must be selected once in the Site Editor →
+    # Navigation block. Non-critical: failures here must not kill the container.
+    set +e
+    menu_id=$(wp menu create "Hauptmenü" --porcelain --allow-root 2>/dev/null)
+    if [ -z "$menu_id" ]; then
+        menu_id=$(wp menu list --fields=term_id,name --format=csv --allow-root 2>/dev/null \
+                  | awk -F',' 'NR>1 && $2=="Hauptmenü" {print $1; exit}')
+    fi
+    if [ -n "$menu_id" ]; then
+        item_count=$(wp menu item list "$menu_id" --format=count --allow-root 2>/dev/null)
+        if [ "${item_count:-0}" = "0" ]; then
+            echo "Adding menu items..."
+            wp menu item add-custom "$menu_id" "Startseite" "/" --allow-root
+            wp menu item add-custom "$menu_id" "Meetups" "/meetups/" --allow-root
+            wp menu item add-custom "$menu_id" "Mitglieder" "/members/" --allow-root
+            wp menu location assign "$menu_id" primary --allow-root 2>/dev/null
+        fi
+    fi
+    set -e
 fi
 
 exec "$@"
