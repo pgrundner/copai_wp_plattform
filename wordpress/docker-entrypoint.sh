@@ -24,7 +24,7 @@ done
 
 # 3) Sync managed plugins on every start so image rebuilds (= new plugin
 #    versions) propagate even when wp-content is a bind-mount.
-managed_plugins="buddypress copai-bp-jitsi-sparring copai-meeting-registration"
+managed_plugins="buddypress copai-bp-jitsi-sparring copai-meeting-registration copai-meetup-block"
 for p in $managed_plugins; do
     src="/usr/src/wordpress/wp-content/plugins/$p"
     dst="/var/www/html/wp-content/plugins/$p"
@@ -62,11 +62,14 @@ if [ "${COPAI_RUN_INSTALL:-0}" = "1" ]; then
             --admin_password="${WP_ADMIN_PASS}" \
             --admin_email="${WP_ADMIN_EMAIL}" \
             --skip-email
-        wp plugin activate buddypress copai-bp-jitsi-sparring copai-meeting-registration \
-            --allow-root || true
     else
         echo "WordPress already installed; skipping core install."
     fi
+
+    # Ensure managed plugins are active on every start (no-op when already active).
+    # This picks up newly added managed plugins on existing installations.
+    wp plugin activate buddypress copai-bp-jitsi-sparring copai-meeting-registration copai-meetup-block \
+        --allow-root 2>/dev/null || true
 
     # Pre-configure default menu (idempotent). The menu shows up automatically
     # with classic themes assigned to the `primary` location; with block themes

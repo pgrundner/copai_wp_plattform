@@ -1,0 +1,20 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "copai/meetup-list",
+  "title": "Meetup-Liste",
+  "category": "widgets",
+  "icon": "calendar-alt",
+  "description": "Listet kommende oder vergangene Meetups.",
+  "textdomain": "copai-meetup-block",
+  "supports": {
+    "html": false,
+    "align": ["wide", "full"]
+  },
+  "attributes": {
+    "count": { "type": "number", "default": 5 },
+    "scope": { "type": "string", "default": "upcoming" }
+  },
+  "editorScript": "file:./index.js",
+  "render": "file:./render.php"
+}

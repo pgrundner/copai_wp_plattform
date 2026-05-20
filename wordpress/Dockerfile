@@ -34,7 +34,10 @@ RUN git clone --depth=1 --branch="${MEETING_REGISTRATION_REF}" \
         https://github.com/pgrundner/copai-meeting-registration.git \
     && rm -rf copai-meeting-registration/.git
 
-# mu-plugins (SMTP)
+# Stack-local plugins (e.g. the Meetup block plugin)
+COPY plugins/ /usr/src/wordpress/wp-content/plugins/
+
+# mu-plugins (SMTP, FS-direct)
 COPY mu-plugins/ /usr/src/wordpress/wp-content/mu-plugins/
 
 # Custom entrypoint
