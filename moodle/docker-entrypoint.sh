@@ -98,5 +98,11 @@ if [ -f /var/www/html/setup_oauth2.php ] && [ -n "${OAUTH_CLIENT_SECRET:-}" ]; t
     php /var/www/html/setup_oauth2.php || echo "OAuth2 setup failed (non-fatal)."
 fi
 
+# 3b. SMTP einrichten (idempotent — set_config ist Upsert).
+if [ -f /var/www/html/setup_smtp.php ] && [ -n "${SMTP_HOST:-}" ]; then
+    echo "Konfiguriere SMTP..."
+    php /var/www/html/setup_smtp.php || echo "SMTP setup failed (non-fatal)."
+fi
+
 # 4. Server starten
 exec "$@"
