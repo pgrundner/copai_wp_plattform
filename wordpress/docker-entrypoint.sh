@@ -82,15 +82,28 @@ if [ "${COPAI_RUN_INSTALL:-0}" = "1" ]; then
         needs_flush=1
     fi
 
-    # Enable BuddyPress Groups component if not already active.
+    # Enable BuddyPress Groups component (plus seed BP defaults on first run).
+    # `wp plugin activate buddypress` does NOT populate bp-active-components in
+    # the DB — the option stays unset until BP itself writes defaults later
+    # (during the first admin visit). So on a fresh install our merge would
+    # otherwise clobber the defaults. Seed them explicitly when missing.
     has_groups=$(wp eval 'echo !empty(get_option("bp-active-components", [])["groups"]) ? "1" : "0";' \
                  --allow-root 2>/dev/null)
     if [ "$has_groups" != "1" ]; then
         echo "Enabling BuddyPress Groups component..."
         wp eval '
-            $c = (array) get_option("bp-active-components", []);
-            $c["groups"] = 1;
-            update_option("bp-active-components", $c);
+            $current = (array) get_option("bp-active-components", []);
+            if (empty($current)) {
+                $current = [
+                    "xprofile"      => 1,
+                    "settings"      => 1,
+                    "members"       => 1,
+                    "activity"      => 1,
+                    "notifications" => 1,
+                ];
+            }
+            $current["groups"] = 1;
+            update_option("bp-active-components", $current);
         ' --allow-root 2>/dev/null
         needs_flush=1
     fi
