@@ -126,9 +126,9 @@ if [ "${COPAI_RUN_INSTALL:-0}" = "1" ]; then
         item_count=$(wp menu item list "$menu_id" --format=count --allow-root 2>/dev/null)
         if [ "${item_count:-0}" = "0" ]; then
             echo "Adding menu items..."
-            wp menu item add-custom "$menu_id" "Startseite" "/" --allow-root
-            wp menu item add-custom "$menu_id" "Meetups" "/meetups/" --allow-root
-            wp menu item add-custom "$menu_id" "Mitglieder" "/activity/" --allow-root
+            wp menu item add-custom "$menu_id" "${WP_MENU_HOME_LABEL:-Startseite}"    "/"          --allow-root
+            wp menu item add-custom "$menu_id" "${WP_MENU_MEETUPS_LABEL:-Meetups}"    "/meetups/"  --allow-root
+            wp menu item add-custom "$menu_id" "${WP_MENU_MEMBERS_LABEL:-Mitglieder}" "/activity/" --allow-root
             wp menu location assign "$menu_id" primary --allow-root 2>/dev/null
         else
             # Self-heal: update legacy URL of the Mitglieder item (/members/ → /activity/).

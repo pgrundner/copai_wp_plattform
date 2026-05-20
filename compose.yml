@@ -64,6 +64,9 @@ services:
       - WP_ADMIN_USER
       - WP_ADMIN_PASS
       - WP_ADMIN_EMAIL
+      - WP_MENU_HOME_LABEL
+      - WP_MENU_MEETUPS_LABEL
+      - WP_MENU_MEMBERS_LABEL
       - SMTP_HOST
       - SMTP_PORT
       - SMTP_USER
