@@ -5,7 +5,7 @@
 # Developed by Murbit GmbH as part of the Erasmus+ project:
 #
 # Community of Practice AI
-# Project No.: KA210-VET-4603C73C
+# Project No.: 2023-2-AT01-KA210-VET-000169864
 #
 # Funded by the European Union. Views and opinions expressed are however
 # those of the author(s) only and do not necessarily reflect those of the
